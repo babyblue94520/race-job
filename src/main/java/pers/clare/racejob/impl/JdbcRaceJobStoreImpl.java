@@ -36,7 +36,7 @@ public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
 
     private static final String INSERT = "INSERT INTO race_job(`instance`,`group`,`name`, timezone,description,cron,after_group,after_name,next_time,enabled,`data`) values(?,?,?,?,?,?,?,?,?,?,?)";
 
-    private static final String UPDATE = "UPDATE race_job SET timezone=?,description=?,cron=?,after_group=?,after_name=?,next_time=?,enabled=?,`data`=? WHERE `instance` = ? AND `group` = ? AND `name` = ?";
+    private static final String UPDATE = "UPDATE race_job SET timezone=?,description=?,cron=?,after_group=?,after_name=?,next_time=?,`data`=? WHERE `instance` = ? AND `group` = ? AND `name` = ?";
 
     private static final String UPDATE_ACTIVE = "UPDATE race_job SET last_active_time=? WHERE `instance` = ? AND `group` = ? AND `name` = ?";
 
@@ -149,7 +149,7 @@ public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
             String data = om.writeValueAsString(entity.getData());
             executeUpdate(UPDATE, entity.getTimezone(), entity.getDescription(), entity.getCron()
                     , entity.getAfterGroup(), entity.getAfterName()
-                    , nextTime, entity.getEnabled(), data
+                    , nextTime,  data
                     , instance, entity.getGroup(), entity.getName());
         } catch (RaceJobException e) {
             throw e;
