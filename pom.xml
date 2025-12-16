@@ -11,10 +11,11 @@
 
     <groupId>io.github.babyblue94520</groupId>
     <artifactId>race-job</artifactId>
-    <version>1.0.0-RELEASE</version>
+    <version>1.0.1-RELEASE</version>
     <name>race-job</name>
     <description>A distributed competitive job system where, in a clustered environment, each job is guaranteed to be executed by only one instance.</description>
     <packaging>jar</packaging>
+    
     <url>https://github.com/babyblue94520/race-job</url>
 
     <scm>
