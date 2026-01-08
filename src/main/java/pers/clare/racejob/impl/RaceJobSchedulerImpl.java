@@ -33,7 +33,7 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
 
     private final ConcurrentMap<RaceJobKey, RaceJobContext> jobContextMap = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<RaceJobKey, RaceJobHandler> jobHandlerMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RaceJobHandler> jobHandlerMap = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<RaceJobKey, ConcurrentMap<RaceJobKey, RaceJobKey>> afterJobsMap = new ConcurrentHashMap<>();
 
@@ -92,13 +92,13 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
     /**
      * register job executor
      */
-    public RaceJobHandler registerHandler(RaceJobKey jobKey, RaceJobHandler handler) {
-        jobHandlerMap.put(jobKey, handler);
+    public RaceJobHandler registerHandler(String key, RaceJobHandler handler) {
+        jobHandlerMap.put(key, handler);
         return handler;
     }
 
-    public void unregisterHandler(RaceJobKey jobKey) {
-        jobHandlerMap.remove(jobKey);
+    public void unregisterHandler(String key) {
+        jobHandlerMap.remove(key);
     }
 
     @Override
@@ -136,7 +136,7 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
                     throw e;
                 }
             }
-        } else if (!equals(job, oldJob)) {
+        } else if (Integer.compare(job.getVersion(), oldJob.getVersion()) == 1) {
             jobStore.update(getInstance(), job, nextTime);
         } else {
             return;
@@ -305,7 +305,7 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
         if (Boolean.FALSE.equals(properties.getExecutionEnabled())) return false;
         if (jobContext.isRunning()) return true;
         RaceJob job = jobContext.getJob();
-        RaceJobHandler jobHandler = jobHandlerMap.get(job);
+        RaceJobHandler jobHandler = jobHandlerMap.get(job.getKey());
         if (jobHandler == null) return true;
 
         delayExecute();
@@ -341,7 +341,7 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
                 executed = true;
             } catch (Exception e) {
                 if (Boolean.TRUE.equals(properties.getAbortOnError())) {
-                    jobHandlerMap.remove(job);
+                    jobHandlerMap.remove(job.getKey());
                 }
                 log.error(e.getMessage(), e);
             }
@@ -463,18 +463,6 @@ public class RaceJobSchedulerImpl implements RaceJobScheduler, InitializingBean,
             message.append(EVENT_SPLIT).append(arg);
         }
         eventBus.send(message.toString());
-    }
-
-    private boolean equals(RaceJob source, RaceJob target) {
-        return Objects.equals(source.getGroup(), target.getGroup())
-               && Objects.equals(source.getName(), target.getName())
-               && Objects.equals(source.getDescription(), target.getDescription())
-               && Objects.equals(source.getTimezone(), target.getTimezone())
-               && Objects.equals(source.getCron(), target.getCron())
-               && Objects.equals(source.getEnabled(), target.getEnabled())
-               && Objects.equals(source.getAfterGroup(), target.getAfterGroup())
-               && Objects.equals(source.getAfterName(), target.getAfterName())
-               && Objects.equals(source.getData(), target.getData());
     }
 }
 

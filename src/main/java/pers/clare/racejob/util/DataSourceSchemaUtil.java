@@ -17,7 +17,9 @@ public class DataSourceSchemaUtil {
 
     public static void init(@NonNull DataSource dataSource) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
-            commit(connection, "schema/race-job/" + connection.getMetaData().getDatabaseProductName() + ".sql");
+            String prefix = connection.getMetaData().getDatabaseProductName().toLowerCase();
+            commit(connection, "schema/race-job/" + prefix + ".sql");
+            commit(connection, "schema/race-job/" + prefix + "_alter.sql");
         }
     }
 

@@ -26,17 +26,17 @@ import java.util.Map;
 @Log4j2
 public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
 
-    private static final String FIND_ALL = "SELECT `group`,`name`, timezone,description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ?";
+    private static final String FIND_ALL = "SELECT `group`,`name`,`key`,`version`,`timezone`,description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ?";
 
-    private static final String FIND_ALL_BY_GROUP = "SELECT `group`,`name`, timezone, description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ? AND `group` = ?";
+    private static final String FIND_ALL_BY_GROUP = "SELECT `group`,`name`,`key`,`version`,`timezone`, description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ? AND `group` = ?";
 
-    private static final String FIND = "SELECT `group`,`name`, timezone,description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ? AND `group` = ? AND `name` = ?";
+    private static final String FIND = "SELECT `group`,`name`,`key`,`version`,`timezone`,description,cron,after_group,after_name,enabled,`data` FROM race_job WHERE `instance` = ? AND `group` = ? AND `name` = ?";
 
     private static final String FIND_STATUS = "SELECT state, next_time, last_active_time, enabled FROM race_job WHERE `instance` = ? AND `group` = ? AND `name` = ?";
 
-    private static final String INSERT = "INSERT INTO race_job(`instance`,`group`,`name`, timezone,description,cron,after_group,after_name,next_time,enabled,`data`) values(?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String INSERT = "INSERT INTO race_job(`instance`,`group`,`name`,`key`,`version`,`timezone`,description,cron,after_group,after_name,next_time,enabled,`data`) values(?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
-    private static final String UPDATE = "UPDATE race_job SET timezone=?,description=?,cron=?,after_group=?,after_name=?,next_time=?,`data`=? WHERE `instance` = ? AND `group` = ? AND `name` = ?";
+    private static final String UPDATE = "UPDATE race_job SET `key`=?,`version`=?,`timezone`=?,description=?,cron=?,next_time=?,enabled=?,`data`=? WHERE `instance` = ? AND `group` = ? AND `name` = ? AND `version` < ?";
 
     private static final String UPDATE_ACTIVE = "UPDATE race_job SET last_active_time=? WHERE `instance` = ? AND `group` = ? AND `name` = ?";
 
@@ -135,7 +135,7 @@ public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
     public void insert(String instance, RaceJob entity, long nextTime) {
         try {
             String data = om.writeValueAsString(entity.getData());
-            executeUpdate(INSERT, instance, entity.getGroup(), entity.getName(), entity.getTimezone(), entity.getDescription(), entity.getCron(), entity.getAfterGroup(), entity.getAfterName(), nextTime, entity.getEnabled(), data);
+            executeUpdate(INSERT, instance, entity.getGroup(), entity.getName(), entity.getKey(), entity.getVersion(), entity.getTimezone(), entity.getDescription(), entity.getCron(), entity.getAfterGroup(), entity.getAfterName(), nextTime, entity.getEnabled(), data);
         } catch (RaceJobException e) {
             throw e;
         } catch (Exception e) {
@@ -147,10 +147,7 @@ public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
     public void update(String instance, RaceJob entity, long nextTime) {
         try {
             String data = om.writeValueAsString(entity.getData());
-            executeUpdate(UPDATE, entity.getTimezone(), entity.getDescription(), entity.getCron()
-                    , entity.getAfterGroup(), entity.getAfterName()
-                    , nextTime,  data
-                    , instance, entity.getGroup(), entity.getName());
+            executeUpdate(UPDATE, entity.getKey(), entity.getVersion(), entity.getTimezone(), entity.getDescription(), entity.getCron(), nextTime, entity.getEnabled(), data, instance, entity.getGroup(), entity.getName(), entity.getVersion());
         } catch (RaceJobException e) {
             throw e;
         } catch (Exception e) {
@@ -293,6 +290,8 @@ public class JdbcRaceJobStoreImpl implements RaceJobStore, InitializingBean {
         return new RaceJob(
                 rs.getString(index++)
                 , rs.getString(index++)
+                , rs.getString(index++)
+                , rs.getInt(index++)
                 , rs.getString(index++)
                 , rs.getString(index++)
                 , rs.getString(index++)

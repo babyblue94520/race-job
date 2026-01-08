@@ -21,8 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Log4j2
@@ -54,6 +53,7 @@ class RaceJobSchedulerSingleTest {
     private final RaceJob job = RaceJob.builder()
             .group(tag)
             .name(tag)
+            .key(tag)
             .cron("*/1 * * * * ?")
             .timezone("+00:00")
             .data(map)
@@ -61,6 +61,7 @@ class RaceJobSchedulerSingleTest {
     private final RaceJob afterJob = RaceJob.builder()
             .group(afterTag)
             .name(afterTag)
+            .key(afterTag)
             .afterGroup(tag)
             .afterName(tag)
             .data(map)
@@ -68,6 +69,7 @@ class RaceJobSchedulerSingleTest {
     private final RaceJob afterJob2 = RaceJob.builder()
             .group(afterTag2)
             .name(afterTag2)
+            .key(afterTag2)
             .afterGroup(afterTag)
             .afterName(afterTag)
             .data(map)
@@ -92,7 +94,7 @@ class RaceJobSchedulerSingleTest {
     }
 
     @BeforeAll
-    void beforeAll(){
+    void beforeAll() {
         jobScheduler.add(job);
         jobScheduler.add(afterJob);
         jobScheduler.add(afterJob2);
@@ -179,17 +181,17 @@ class RaceJobSchedulerSingleTest {
         AtomicInteger count3 = new AtomicInteger();
         int target = 5;
         int target2 = 3;
-        jobScheduler.registerHandler(job, (inner) -> {
+        jobScheduler.registerHandler(job.getKey(), (inner) -> {
             if (count.incrementAndGet() == target) {
                 throw new RuntimeException();
             }
         });
 
-        jobScheduler.registerHandler(afterJob, (inner) -> {
+        jobScheduler.registerHandler(afterJob.getKey(), (inner) -> {
             count2.incrementAndGet();
         });
 
-        jobScheduler.registerHandler(afterJob2, (inner) -> {
+        jobScheduler.registerHandler(afterJob2.getKey(), (inner) -> {
             if (count3.incrementAndGet() == target2) {
                 throw new RuntimeException();
             }
@@ -206,11 +208,12 @@ class RaceJobSchedulerSingleTest {
         RaceJob testJob = RaceJob.builder()
                 .group("test")
                 .name("test")
+                .key("test")
                 .cron("*/3 * * * * ?")
                 .timezone("+00:00")
                 .build();
         AtomicInteger count = new AtomicInteger();
-        jobScheduler.registerHandler(testJob, (inner) -> {
+        jobScheduler.registerHandler(testJob.getKey(), (inner) -> {
             count.incrementAndGet();
         });
         jobScheduler.add(testJob);
@@ -280,6 +283,7 @@ class RaceJobSchedulerSingleTest {
         return RaceJob.builder()
                 .group("job")
                 .name(n + "")
+                .key(n + "")
                 .cron("* * * * * ?")
                 .timezone("+00:00")
                 .build();

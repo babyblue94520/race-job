@@ -3,10 +3,12 @@ package pers.clare.racejob.vo;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Map;
 
 @Getter
+@Setter
 @SuperBuilder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
@@ -16,8 +18,13 @@ public class RaceJob extends RaceJobKey {
     @NonNull
     private String name;
     @NonNull
+    private String key;
+    @NonNull
     @Builder.Default
-    private String timezone = "";
+    private Integer version = 1;
+    @NonNull
+    @Builder.Default
+    private String timezone = ZoneId.systemDefault().toString();
     @NonNull
     @Builder.Default
     private String description = "";

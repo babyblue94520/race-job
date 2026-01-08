@@ -37,7 +37,7 @@ public class JobRegister {
         jobs.forEach(job -> {
             countMap.put(job, new AtomicInteger(0));
 
-            jobScheduler.registerHandler(job, (inner) -> {
+            jobScheduler.registerHandler(job.getKey(), (inner) -> {
                 countMap.computeIfAbsent(inner, (key) -> new AtomicInteger(0))
                         .incrementAndGet();
             });
