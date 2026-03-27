@@ -41,12 +41,12 @@ public interface RaceJobScheduler {
     /**
      * add job event executor
      */
-    RaceJobHandler registerHandler(@NonNull RaceJobKey jobKey, @NonNull RaceJobHandler handler);
+    RaceJobHandler registerHandler(@NonNull String key, @NonNull RaceJobHandler handler);
 
     /**
      * remove job event executor
      */
-    void unregisterHandler(@NonNull RaceJobKey jobKey);
+    void unregisterHandler(@NonNull String key);
 
     /**
      * executor job

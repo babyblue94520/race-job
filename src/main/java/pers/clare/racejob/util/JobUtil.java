@@ -24,6 +24,6 @@ public class JobUtil {
     }
 
     public static ZonedDateTime getDateTime(String timezone) {
-        return timezone == null ? ZonedDateTime.now() : ZonedDateTime.now(ZoneId.of(timezone));
+        return timezone == null || timezone.isEmpty() ? ZonedDateTime.now() : ZonedDateTime.now(ZoneId.of(timezone));
     }
 }

@@ -13,6 +13,7 @@ If you implement `RaceJobEventBus`, the system automatically synchronizes job ch
 - **Clear separation of job management and execution**.
 - **Extendable Event Service** for distributed message sync.
 - **Cron scheduling, dependent jobs, dynamic job updates**.
+- **Global Kill Switch** (`execution-enabled`) to pause execution engine on specific nodes.
 - **No Quartz required** — simpler, safer, and easier to maintain.
 
 ---
@@ -31,7 +32,7 @@ flowchart TD
     DB[(Job Table)]
 
 %% === Job Handle Service ===
-subgraph JHS[Job Handle Service. ]
+subgraph JHS[Job Handle Service]
 JHS_Register[Register Handlers by group and name]
 JHS_Reload[Periodically reload jobs from DB]
 JHS_Compete[Compete for job execution using optimistic lock]
@@ -78,6 +79,7 @@ JHS_Execute -->|Update next_run_time / status| DB
       thread-count: 20 # default processors * 2
       check-wait-time: 1000 # Wait time to check if a job is being processed
       update-active-interval: 60000 # The running job periodically updates its last active timestamp
+      execution-enabled: true # If false, the scheduler engine will NOT start
       abort-on-error: true # If true, aborts the task on exception
     ```
 
@@ -86,33 +88,49 @@ JHS_Execute -->|Update next_run_time / status| DB
     ```java
     
     @EnableRaceJob
+    @Configuration
     public class RaceJobConfig {
     
     }
     ```
 
-### 🛠 Create or Update a Job
+---
+
+## 🛠 Job Management
+
+### Create or Update a Job
+
+*   **Create**: If the job (defined by group and name) does not exist, it is inserted into the database.
+*   **Update**: If the job exists, it will only be updated if the provided `version` is **greater** than the current version in the database.
+*   **Important**: The `enabled` state cannot be modified through the `add()` method. Use `enable()` or `disable()` instead.
 
 ```java
-@EnableRaceJob
-public class RaceJobConfig {
+@Autowired
+private RaceJobScheduler scheduler;
 
-    @Autowired
-    private RaceJobScheduler scheduler;
+// Create a job
+scheduler.add(RaceJob.builder()
+        .group("group").name("name").key("key")
+        .cron("* * * * * ?")
+        .version(1)
+        .build());
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        scheduler.add(RaceJob.builder()
-                .group("group")
-                .name("name")
-                .cron("* * * * * ?")
-                .timezone("+00:00")
-                .build());
-    }
-}
+// Update a job (requires version increment)
+scheduler.add(RaceJob.builder()
+        .group("group").name("name").key("key")
+        .version(2)
+        .cron("0 0 * * * ?")
+        .build());
+
+// Control job status
+scheduler.enable(new RaceJobKey("group", "name"));
+scheduler.disable(new RaceJobKey("group", "name"));
 ```
 
+
 🏃 Register Job Handler
+
+Trigger handler by job key
 
 ```java
 @Component
@@ -123,9 +141,8 @@ public class RaceJobHandlerRegister implements InitializingBean {
   
   @Override
   public void afterPropertiesSet() throws Exception {
-      String group = "group";
-      String name = "name";
-      scheduler.registerHandler(new RaceJobKey(group, name), (job) -> {
+      String key = "key";
+      scheduler.registerHandler(key, (job) -> {
           // Do something
       });
   }
@@ -147,8 +164,7 @@ public class RaceJobConfig {
         scheduler.add(RaceJob.builder()
                 .group("after-group")
                 .name("after-name")
-                .afterGroup("group")
-                .afterName("name")
+                .dependsKey("key")
                 .build());
     }
 }
@@ -256,11 +272,12 @@ CREATE TABLE IF NOT EXISTS `race_job`
     `instance`              varchar(100)    NOT NULL DEFAULT '',
     `group`                 varchar(100)    NOT NULL DEFAULT '',
     `name`                  varchar(100)    NOT NULL DEFAULT '',
+    `key`                   varchar(100)    NOT NULL DEFAULT '',
+    `version`               int             NOT NULL DEFAULT 1,
     `timezone`              varchar(10)     NOT NULL DEFAULT '',
     `description`           varchar(200)    NOT NULL DEFAULT '',
     `cron`                  varchar(200)    NOT NULL DEFAULT '',
-    `after_group`           varchar(100)    NOT NULL DEFAULT '',
-    `after_name`            varchar(100)    NOT NULL DEFAULT '',
+    `depends_key`           varchar(100)    NOT NULL DEFAULT '',
     `prev_time`             bigint(13)      NOT NULL DEFAULT 0,
     `next_time`             bigint(13)      NOT NULL DEFAULT 0,
     `enabled`               tinyint(1)      NOT NULL DEFAULT 1,
@@ -270,9 +287,6 @@ CREATE TABLE IF NOT EXISTS `race_job`
     `last_active_time`      bigint(13)      NOT NULL DEFAULT 0,
     `data`                  text            NULL,
     PRIMARY KEY (`instance`, `group`, `name`) USING BTREE
-) ENGINE = InnoDB
-CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_unicode_ci
-ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB ROW_FORMAT = Dynamic;
 
 ```

@@ -1,21 +1,25 @@
 package pers.clare.racejob.vo;
 
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 
 import java.util.Collections;
 import java.util.Map;
 
 @Getter
-@SuperBuilder(toBuilder = true)
+@Setter
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
-public class RaceJob extends RaceJobKey {
+public class RaceJob {
     @NonNull
     private String group;
     @NonNull
     private String name;
     @NonNull
+    private String key;
+    @NonNull
+    @Builder.Default
+    private Integer version = 1;
     @Builder.Default
     private String timezone = "";
     @NonNull
@@ -26,10 +30,7 @@ public class RaceJob extends RaceJobKey {
     private String cron = "";
     @NonNull
     @Builder.Default
-    private String afterGroup = "";
-    @NonNull
-    @Builder.Default
-    private String afterName = "";
+    private String dependsKey = "";
     @NonNull
     @Builder.Default
     private Boolean enabled = true;
@@ -37,11 +38,15 @@ public class RaceJob extends RaceJobKey {
     @Builder.Default
     private Map<String, Object> data = Collections.emptyMap();
 
+    public RaceJobKey toKey() {
+        return new RaceJobKey(group, name);
+    }
+
     @Override
     public String toString() {
         return "RaceJob{" +
-               "group=\"" + group + '\"' +
-               ", name=\"" + name + '\"' +
-               '}';
+                "group=\"" + group + '\"' +
+                ", name=\"" + name + '\"' +
+                '}';
     }
 }

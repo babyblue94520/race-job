@@ -11,59 +11,31 @@ import pers.clare.racejob.vo.RaceJob;
 import pers.clare.test.ApplicationTest2;
 import pers.clare.test.racejob.JobRegister;
 
+import java.util.Collections;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Log4j2
-@DisplayName("SchedulerDisabledTest")
+@DisplayName("RaceJobSchedulerDisabledTest")
 @ActiveProfiles("disabled")
 @SpringBootTest(classes = ApplicationTest2.class)
-@Nested
 @TestInstance(PER_CLASS)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class RaceJobSchedulerDisabledTest {
 
-    private void assertZero(Integer count) {
-        assertEquals(0, count, () -> String.format("count: %d", count));
-    }
-
-    private void assertGreaterZero(Integer count) {
-        assertTrue(count > 0, () -> String.format("count: %d", count));
-    }
-
-    {
-        H2Application.main(null);
-    }
-
     private final String tag = String.valueOf(System.currentTimeMillis());
-    private final String afterTag = "after-" + System.currentTimeMillis();
-    private final String afterTag2 = "after2-" + System.currentTimeMillis();
-    private final Map<String, Object> map = Map.of("test", "test");
+    private final Map<String, Object> data = Collections.singletonMap("test", "test");
 
     private final RaceJob job = RaceJob.builder()
-            .group(tag)
-            .name(tag)
-            .cron("*/1 * * * * ?")
-            .timezone("+00:00")
-            .data(map)
-            .build();
+            .group(tag).name(tag + "-1").key(tag + "-1")
+            .cron("*/1 * * * * ?") // 1s interval
+            .data(data).build();
+
     private final RaceJob afterJob = RaceJob.builder()
-            .group(afterTag)
-            .name(afterTag)
-            .afterGroup(tag)
-            .afterName(tag)
-            .data(map)
-            .build();
-    private final RaceJob afterJob2 = RaceJob.builder()
-            .group(afterTag2)
-            .name(afterTag2)
-            .afterGroup(afterTag)
-            .afterName(afterTag)
-            .data(map)
-            .build();
+            .group(tag).name(tag + "-2").key(tag + "-2")
+            .dependsKey(job.getKey())
+            .data(data).build();
 
     @Autowired
     private RaceJobScheduler jobScheduler;
@@ -71,98 +43,54 @@ class RaceJobSchedulerDisabledTest {
     @Autowired
     private JobRegister jobRegister;
 
-    private void delay() throws InterruptedException {
-        Thread.sleep(1000);
-    }
-
-    private void sleep() {
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-
     @BeforeAll
-    void beforeAll(){
+    void setup() {
+        // Ensure H2 Server is running if the profile requires it
+        H2Application.main(null);
+        
         jobScheduler.add(job);
         jobScheduler.add(afterJob);
-        jobScheduler.add(afterJob2);
         jobRegister.registerHandlers();
     }
 
     @BeforeEach
-    void before() {
-        jobScheduler.add(job);
-        jobScheduler.add(afterJob);
-        jobScheduler.add(afterJob2);
-        reset();
-    }
-
-    @AfterEach
-    void after() {
-        jobScheduler.remove(job);
-        jobScheduler.remove(afterJob);
-        jobScheduler.remove(afterJob2);
-    }
-
-    private void reset() {
+    void reset() {
         JobRegister.reset();
     }
 
-    private Integer getSumCount(RaceJob raceJob) {
-        return JobRegister.getCount(raceJob);
+    @Test
+    @DisplayName("Verify no scheduled execution occurs when scheduler is disabled")
+    void testNoScheduledExecution() throws InterruptedException {
+        // Job is enabled by default in RaceJob.builder()
+        // Wait for scheduled execution (cron is 1s)
+        log.info("Waiting for scheduled execution (should not occur)...");
+        Thread.sleep(2500); // Wait > 2s to allow for cron and potential delays
+        
+        assertEquals(0, JobRegister.getCount(job), "Job should not have executed via scheduler");
+        assertEquals(0, JobRegister.getCount(afterJob), "Dependent job should not have executed");
     }
 
     @Test
-    @Order(3)
-    void disable() throws InterruptedException {
-        jobScheduler.disable(job);
-        delay();
-        reset();
-        sleep();
-        assertZero(getSumCount(job));
-        assertZero(getSumCount(afterJob));
-        assertZero(getSumCount(afterJob2));
+    @DisplayName("Verify no manual execution occurs when scheduler is disabled")
+    void testNoManualExecution() throws InterruptedException {
+        log.info("Attempting manual execution (should be blocked)...");
+        jobScheduler.execute(job.toKey());
+        
+        Thread.sleep(1000); // Brief wait to ensure no background execution started
+        
+        assertEquals(0, JobRegister.getCount(job), "Job should not have executed manually");
     }
 
     @Test
-    @Order(4)
-    void enable() {
-        jobScheduler.enable(job);
-        reset();
-        sleep();
-        assertZero(getSumCount(job));
-        assertZero(getSumCount(afterJob));
-        assertZero(getSumCount(afterJob2));
+    @DisplayName("Verify operations (disable/remove) don't trigger execution or cause errors")
+    void testOperationsWhenDisabled() throws InterruptedException {
+        // These operations should succeed but not trigger any execution
+        jobScheduler.disable(job.toKey());
+        jobScheduler.enable(job.toKey());
+        jobScheduler.remove(job.toKey());
+        
+        Thread.sleep(1000);
+        
+        assertEquals(0, JobRegister.getCount(job), "Operations should not trigger execution");
     }
-
-    @Test
-    @Order(8)
-    void remove() throws InterruptedException {
-        jobScheduler.remove(job);
-        delay();
-        reset();
-        sleep();
-        assertZero(getSumCount(job));
-        assertZero(getSumCount(afterJob));
-        assertZero(getSumCount(afterJob2));
-    }
-
-
-    @Test
-    @Order(10)
-    void execute() throws InterruptedException {
-        jobScheduler.disable(job);
-        delay();
-        reset();
-        jobScheduler.execute(job);
-        sleep();
-        assertZero(getSumCount(job));
-        assertZero(getSumCount(afterJob));
-        assertZero(getSumCount(afterJob2));
-    }
-
-
 }

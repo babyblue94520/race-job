@@ -45,15 +45,15 @@ class RaceJobSchedulerClusterTest {
         H2Application.main(null);
     }
 
-
     private final String tag = "job";
     private final String afterTag = "after-" + System.currentTimeMillis();
     private final String afterTag2 = "after2-" + System.currentTimeMillis();
-    private final Map<String, Object> map = Map.of("test", "test");
+    private final Map<String, Object> map = java.util.Collections.singletonMap("test", "test");
 
     private final RaceJob job = RaceJob.builder()
             .group(tag)
             .name(tag)
+            .key(tag)
             .cron("* * * * * ?")
             .timezone("+00:00")
             .data(map)
@@ -61,16 +61,16 @@ class RaceJobSchedulerClusterTest {
     private final RaceJob afterJob = RaceJob.builder()
             .group(afterTag)
             .name(afterTag)
-            .afterGroup(tag)
-            .afterName(tag)
+            .key(afterTag)
+            .dependsKey(tag)
             .timezone("+00:00")
             .data(map)
             .build();
     private final RaceJob afterJob2 = RaceJob.builder()
             .group(afterTag2)
             .name(afterTag2)
-            .afterGroup(afterTag)
-            .afterName(afterTag)
+            .key(afterTag2)
+            .dependsKey(afterTag)
             .timezone("+00:00")
             .data(map)
             .build();
@@ -104,7 +104,7 @@ class RaceJobSchedulerClusterTest {
         jobScheduler.add(afterJob2);
         jobRegister.registerHandlers();
         for (int i = 0; i < 3; i++) {
-            ApplicationTest2.main(new String[]{"--spring.profiles.active=cluster", "--server.port=0"});
+            ApplicationTest2.main(new String[] { "--spring.profiles.active=cluster", "--server.port=0" });
         }
     }
 
@@ -118,9 +118,9 @@ class RaceJobSchedulerClusterTest {
 
     @AfterEach
     void after() {
-        jobScheduler.remove(job);
-        jobScheduler.remove(afterJob);
-        jobScheduler.remove(afterJob2);
+        jobScheduler.remove(job.toKey());
+        jobScheduler.remove(afterJob.toKey());
+        jobScheduler.remove(afterJob2.toKey());
         sleep();
     }
 
@@ -152,7 +152,7 @@ class RaceJobSchedulerClusterTest {
     }
 
     void doDisable() {
-        jobScheduler.disable(job);
+        jobScheduler.disable(job.toKey());
         delay();
         reset();
         sleep();
@@ -170,7 +170,7 @@ class RaceJobSchedulerClusterTest {
     }
 
     void doEnable() {
-        jobScheduler.enable(job);
+        jobScheduler.enable(job.toKey());
         reset();
         sleep();
         assertGreaterZero(getSumCount(job));
@@ -181,7 +181,7 @@ class RaceJobSchedulerClusterTest {
     @Test
     @Order(8)
     void remove() {
-        jobScheduler.remove(job);
+        jobScheduler.remove(job.toKey());
         delay();
         reset();
         sleep();
@@ -193,10 +193,10 @@ class RaceJobSchedulerClusterTest {
     @Test
     @Order(10)
     void execute() {
-        jobScheduler.disable(job);
+        jobScheduler.disable(job.toKey());
         delay();
         reset();
-        jobScheduler.execute(job);
+        jobScheduler.execute(job.toKey());
         sleep();
         assertGreaterZero(getSumCount(job));
         assertGreaterZero(getSumCount(afterJob));
